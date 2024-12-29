@@ -49,6 +49,7 @@ def get_train_ds_config(
         "prescale_gradients": False,
         "wall_clock_breakdown": False,
         "data_types": {"grad_accum_dtype": grad_accum_dtype},
+        "zero_force_ds_cpu_optimizer": False,
     }
 
 
