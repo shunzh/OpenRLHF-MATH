@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
+from openrlhf.models.fixed_reward_models import get_reward_model
 import ray
 import torch
 import torch.nn as nn
@@ -113,6 +114,7 @@ class Samples:
     packed_seq_lens: Optional[torch.Tensor]
     response_length: torch.Tensor
     total_length: torch.Tensor
+    answers: List[str]  # For math
 
 
 class NaiveExperienceMaker(ABC):
@@ -131,6 +133,7 @@ class NaiveExperienceMaker(ABC):
         kl_controller,
         strategy=None,
         remote_rm_url: str = None,
+        fixed_rm: str = None,
         reward_fn=None,
     ) -> None:
         super().__init__()
@@ -138,6 +141,7 @@ class NaiveExperienceMaker(ABC):
         self.critic = critic
         self.reward_model = reward_model
         self.remote_rm_url = remote_rm_url
+        self.fixed_rm = fixed_rm
         self.initial_model = initial_model
         self.tokenizer = tokenizer
         self.prompt_max_len = prompt_max_len
@@ -238,7 +242,7 @@ class NaiveExperienceMaker(ABC):
         return experiences
 
     @torch.no_grad()
-    def generate_samples(self, all_prompts: List[str], **generate_kwargs) -> List[Samples]:
+    def generate_samples(self, all_prompts_data: List[dict], **generate_kwargs) -> List[Samples]:
         """
         Generate samples and return in batches.
         """
@@ -246,10 +250,13 @@ class NaiveExperienceMaker(ABC):
         args = self.strategy.args
         self.actor.eval()
         # sample multiple response
-        all_prompts = sum([[prompt] * args.n_samples_per_prompt for prompt in all_prompts], [])
+        all_prompts = sum([[prompt] * args.n_samples_per_prompt for prompt in all_prompts_data["prompt"]], [])
+        all_answers = sum([[answer] * args.n_samples_per_prompt for answer in all_prompts_data["answer"]], [])
+
         samples_list = []
         for i in range(0, len(all_prompts), args.micro_rollout_batch_size):
             prompts = all_prompts[i : i + args.micro_rollout_batch_size]
+            answers = all_answers[i : i + args.micro_rollout_batch_size]
             inputs = self.tokenize_fn(prompts, self.prompt_max_len, device="cuda")
             sequences, attention_mask, action_mask = self.actor.generate(**inputs, **generate_kwargs)
             samples = Samples(
@@ -257,6 +264,7 @@ class NaiveExperienceMaker(ABC):
                 attention_mask=attention_mask,
                 action_mask=action_mask,
                 num_actions=action_mask.size(1),
+                answers=answers,
                 packed_seq_lens=None,
                 response_length=action_mask.float().sum(dim=-1),
                 total_length=attention_mask.float().sum(dim=-1),
@@ -299,6 +307,9 @@ class NaiveExperienceMaker(ABC):
             # remote RM
             queries = self.tokenizer.batch_decode(sequences.cpu(), skip_special_tokens=False)
             r = remote_rm_fn(self.remote_rm_url, queries=queries).to(device=action_log_probs.device)
+        elif self.fixed_rm is not None:
+            queries = self.tokenizer.batch_decode(sequences.cpu(), skip_special_tokens=False)
+            r = get_reward_model(self.fixed_rm)(queries, samples.answers)
         else:
             # local RM
             r = self.reward_model(sequences, attention_mask)

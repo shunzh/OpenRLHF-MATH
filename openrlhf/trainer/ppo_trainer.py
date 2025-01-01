@@ -50,6 +50,7 @@ class PPOTrainer(ABC):
         dataloader_pin_memory (bool, defaults to True): If True, pins memory in the data loader.
         remote_rm_url (str, optional): URL for remote reward model API.
         reward_fn (Callable, optional): Custom reward function for computing rewards.
+        fixed_rm: (str, optional): Fixed reward model name.
         **generate_kwargs: Additional arguments for model generation.
     """
 
@@ -83,6 +84,7 @@ class PPOTrainer(ABC):
         prompt_max_len: int = 128,
         dataloader_pin_memory: bool = True,
         remote_rm_url: str = None,
+        fixed_rm: str = None,
         reward_fn: Callable[[List[torch.Tensor]], torch.Tensor] = None,
         **generate_kwargs,
     ) -> None:
@@ -142,6 +144,7 @@ class PPOTrainer(ABC):
             self.kl_ctl,
             strategy,
             remote_rm_url,
+            fixed_rm,
             reward_fn,
         )
         packing_samples = getattr(self.args, "packing_samples", False)

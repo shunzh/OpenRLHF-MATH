@@ -54,7 +54,7 @@ def train(args):
     else:
         critic = None
 
-    if not args.remote_rm_url:
+    if not args.remote_rm_url and not args.fixed_rm:
         reward_model = get_llm_for_sequence_regression(
             args.reward_pretrain,
             "reward",
@@ -262,6 +262,7 @@ def train(args):
         eos_token_id=tokenizer.eos_token_id,
         # remote reward model
         remote_rm_url=args.remote_rm_url,
+        fixed_rm=args.fixed_rm,
     )
 
     trainer.fit(args, prompts_dataloader, pretrain_dataloader, consumed_samples, num_update_steps_per_episodes)
@@ -373,6 +374,7 @@ if __name__ == "__main__":
     parser.add_argument("--pretrain", type=str, default=None, help="HF model name or path")
     parser.add_argument("--reward_pretrain", type=str, default=None, help="HF model name or path")
     parser.add_argument("--remote_rm_url", type=str, default=None, help="remote RM API")
+    parser.add_argument("--fixed_rm", type=str, default=None, help="Fixed reward model path")
     parser.add_argument("--critic_pretrain", type=str, default=None, help="HF model name or path")
     parser.add_argument("--value_head_prefix", type=str, default="score")
 
@@ -394,6 +396,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--pretrain_split", type=str, default="train")
     parser.add_argument("--input_key", type=str, default="input", help="JSON dataset key")
+    parser.add_argument("--answer_key", type=str, default="answer", help="JSON dataset key")
     parser.add_argument("--input_template", type=str, default=None)
     parser.add_argument(
         "--apply_chat_template", action="store_true", default=False, help="Use HF tokenizer chat template"
@@ -418,7 +421,7 @@ if __name__ == "__main__":
     if args.advantage_estimator not in ["gae"]:
         args.critic_pretrain = None
     elif args.critic_pretrain is None:
-        if not args.remote_rm_url:
+        if not args.remote_rm_url and not args.fixed_rm:
             args.critic_pretrain = args.reward_pretrain
         else:
             args.critic_pretrain = args.pretrain

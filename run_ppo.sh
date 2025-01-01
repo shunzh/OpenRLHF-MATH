@@ -1,7 +1,7 @@
 deepspeed --module openrlhf.cli.train_ppo \
-  --pretrain OpenRLHF/Llama-3-8b-sft-mixture \
-  --reward_pretrain OpenRLHF/Llama-3-8b-rm-mixture \
-  --save_path ./checkpoint/llama-3-8b-rlhf \
+  --pretrain ../qwen-satori \
+  --fixed_rm MATH \
+  --save_path ./checkpoint/qwen-satori-math-rlhf \
   --save_steps -1 \
   --logging_steps 1 \
   --eval_steps -1 \
@@ -17,15 +17,16 @@ deepspeed --module openrlhf.cli.train_ppo \
   --actor_learning_rate 5e-7 \
   --critic_learning_rate 9e-6 \
   --init_kl_coef 0.01 \
-  --prompt_data OpenRLHF/prompt-collection-v0.1 \
-  --input_key context_messages \
-  --apply_chat_template \
+  --prompt_data ../ScaleQuest-QwQ \
+  --input_key query \
+  --answer_key answer \
   --max_samples 100000 \
   --normalize_reward \
-  --adam_offload \
   --flash_attn \
   --gradient_checkpointing \
   --use_wandb $WANDB_API_KEY
 
 # Support remote reward model (HTTP)
 # --remote_rm_url http://localhost:5000/get_reward
+# --apply_chat_template \
+# --adam_offload \

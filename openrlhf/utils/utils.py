@@ -1,6 +1,7 @@
 import os
 
 from datasets import interleave_datasets, load_dataset, load_from_disk
+import torch
 from transformers import AutoTokenizer
 
 
@@ -63,6 +64,7 @@ def blending_datasets(
         dataset = dataset.split("@")[0].strip()
         dataset_basename = os.path.basename(dataset)
 
+        data = None
         ext = os.path.splitext(dataset)[-1]
         # local python script
         if ext == ".py" or (
@@ -79,11 +81,15 @@ def blending_datasets(
             strategy.print(f"loaded {dataset} with data_files={dataset}")
         # local dataset saved with `datasets.Dataset.save_to_disk`
         elif os.path.isdir(dataset):
-            data = load_from_disk(dataset)
-            strategy.print(f"loaded {dataset} from disk")
-        # remote/local folder or common file
-        else:
-            data = load_dataset(dataset, data_dir=data_dir)
+            try:
+                data = load_from_disk(dataset)
+                strategy.print(f"loaded {dataset} from disk")
+            except:
+                strategy.print(f"load_from_disk failed.")
+
+        # If previous attempts failed, try to load from HF
+        if data is None:
+            data = load_dataset(dataset)
             strategy.print(f"loaded {dataset} from files")
 
         if train_split and train_split in data:
