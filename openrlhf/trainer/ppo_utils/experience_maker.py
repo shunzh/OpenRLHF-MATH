@@ -157,14 +157,15 @@ class NaiveExperienceMaker(ABC):
             # when padding is False, return tokenized texts as list
             return self.tokenizer(
                 texts,
-                add_special_tokens=False,
+                # add_special_tokens=False,
                 max_length=max_length,
                 truncation=True,
             )
         batch = self.tokenizer(
             texts,
             return_tensors="pt",
-            add_special_tokens=False,
+            # SHUN: Why was this set to False?
+            # add_special_tokens=False,
             max_length=max_length,
             padding=True,
             truncation=True,

@@ -24,6 +24,7 @@ deepspeed --module openrlhf.cli.train_ppo \
   --normalize_reward \
   --flash_attn \
   --gradient_checkpointing \
+  --advantage_estimator reinforce \
   --use_wandb $WANDB_API_KEY
 
 # Support remote reward model (HTTP)

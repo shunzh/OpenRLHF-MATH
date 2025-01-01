@@ -1,5 +1,7 @@
 import torch
 
+from openrlhf.utils.math_answer_exctraction import extract_answer
+
 # Dictionary to store registered reward models
 REWARD_MODELS = {}
 
@@ -42,10 +44,15 @@ def math_reward_model(queries, answers):
     """
     rewards = []
     for query, answer in zip(queries, answers):
-        query_content = query.split("\\boxed{")[1].split("}")[0]
-        # TODO Handle floating point numbers
-        if query_content == answer:
-            rewards.append(1.0)
-        else:
+        try:
+            response = query.split("<|start_header_id|>assistant<|end_header_id|>")[1]
+            answer_in_box = extract_answer(response)
+            print(f"answer_in_box: {answer_in_box}, answer: {answer}")
+            # TODO Handle floating point numbers
+            if answer_in_box == answer:
+                rewards.append(1.0)
+            else:
+                rewards.append(0.0)
+        except:
             rewards.append(0.0)
     return torch.tensor(rewards)
