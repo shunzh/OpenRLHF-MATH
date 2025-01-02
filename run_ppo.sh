@@ -2,7 +2,7 @@ deepspeed --module openrlhf.cli.train_ppo \
   --pretrain ../qwen-satori \
   --fixed_rm MATH \
   --save_path ./checkpoint/qwen-satori-math-rlhf \
-  --save_steps -1 \
+  --save_steps 25 \
   --logging_steps 1 \
   --eval_steps -1 \
   --micro_train_batch_size 2 \
@@ -22,12 +22,12 @@ deepspeed --module openrlhf.cli.train_ppo \
   --answer_key answer \
   --max_samples 100000 \
   --normalize_reward \
+  --adam_offload \
   --flash_attn \
   --gradient_checkpointing \
-  --advantage_estimator reinforce \
   --use_wandb $WANDB_API_KEY
 
 # Support remote reward model (HTTP)
 # --remote_rm_url http://localhost:5000/get_reward
 # --apply_chat_template \
-# --adam_offload \
+# --advantage_estimator reinforce \

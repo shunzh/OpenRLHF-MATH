@@ -1,3 +1,7 @@
+"""
+Use the code from VinePPO for extracting math answers.
+https://github.com/McGill-NLP/VinePPO/blob/main/src/treetune/tasks/math_answer_exctraction.py
+"""
 import re
 import regex
 

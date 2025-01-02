@@ -47,8 +47,6 @@ def math_reward_model(queries, answers):
         try:
             response = query.split("<|start_header_id|>assistant<|end_header_id|>")[1]
             answer_in_box = extract_answer(response)
-            print(f"answer_in_box: {answer_in_box}, answer: {answer}")
-            # TODO Handle floating point numbers
             if answer_in_box == answer:
                 rewards.append(1.0)
             else:
