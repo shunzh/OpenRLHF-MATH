@@ -225,6 +225,27 @@ def train(args):
 
     os.makedirs(args.save_path, exist_ok=True)
 
+    # Initialize eval dataloader if eval_data is provided
+    eval_dataloader = None
+    if args.eval_data:
+        eval_data = blending_datasets(
+            args.eval_data,
+            args.eval_data_probs,
+            strategy,
+            args.seed,
+            return_eval=False,
+            train_split=args.eval_split,
+        )
+        eval_dataset = PromptDataset(
+            eval_data, 
+            tokenizer, 
+            strategy, 
+            input_template=args.eval_input_template
+        )
+        eval_dataloader = strategy.setup_dataloader(
+            eval_dataset, args.rollout_batch_size // strategy.world_size, True, shuffle=False
+        )
+
     # configure Trainer
     trainer = PPOTrainer(
         strategy,
@@ -265,7 +286,14 @@ def train(args):
         fixed_rm=args.fixed_rm,
     )
 
-    trainer.fit(args, prompts_dataloader, pretrain_dataloader, consumed_samples, num_update_steps_per_episodes)
+    trainer.fit(
+        args,
+        prompts_dataloader,
+        pretrain_dataloader,
+        consumed_samples,
+        num_update_steps_per_episodes,
+        eval_dataloader,
+    )
 
     # save model checkpoint after fitting on only rank0
     strategy.save_model(
@@ -415,6 +443,18 @@ if __name__ == "__main__":
 
     # TensorBoard parameters
     parser.add_argument("--use_tensorboard", type=str, default=None, help="TensorBoard logging path")
+
+    parser.add_argument("--eval_data", type=str, default=None, help="HF dataset name or path for evaluation")
+    parser.add_argument(
+        "--eval_data_probs",
+        type=str,
+        default="1.0",
+        help="sampling probs for eval datasets",
+    )
+    parser.add_argument("--eval_split", type=str, default="test")
+
+    parser.add_argument("--eval_input_template", type=str, default=None, 
+                       help="Template for formatting eval prompts. Falls back to input_template if not specified")
 
     args = parser.parse_args()
 

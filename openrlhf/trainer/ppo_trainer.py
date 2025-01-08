@@ -190,6 +190,7 @@ class PPOTrainer(ABC):
         pretrain_dataloader,
         consumed_samples=0,
         num_update_steps_per_episodes=1,
+        eval_dataloader=None,
     ) -> None:
         num_rollouts_per_episodes = (
             num_update_steps_per_episodes
@@ -207,6 +208,7 @@ class PPOTrainer(ABC):
 
         self.prompts_dataloader = prompts_dataloader
         self.pretrain_dataloader = pretrain_dataloader
+        self.eval_dataloader = eval_dataloader
 
         # Restore step and start_epoch
         steps = consumed_samples // args.rollout_batch_size + 1
@@ -490,10 +492,8 @@ class PPOTrainer(ABC):
                     for k, v in self.experience_maker.perf_stats.items():
                         self._tensorboard.add_scalar(f"perf/experience_maker/{k}", v, global_step)
 
-        # TODO: Add evaluation mechanism for PPO
-        if global_step % args.eval_steps == 0:
-            # self.evaluate(self.eval_dataloader, global_step)
-            pass
+        if global_step % args.eval_steps == 0 and self.eval_dataloader is not None:
+            self.evaluate(self.eval_dataloader, global_step)
         # save ckpt
         # TODO: save best model on dev, use loss/perplexity/others on whole dev dataset as metric
         if global_step % args.save_steps == 0:
@@ -513,3 +513,59 @@ class PPOTrainer(ABC):
             self.strategy.save_ckpt(
                 self.critic, os.path.join(args.ckpt_path, "_critic"), tag, args.max_ckpt_num, args.max_ckpt_mem
             )
+
+    def evaluate(self, eval_dataloader, steps=0):
+        """
+        Evaluate the current model on evaluation dataset
+        
+        Args:
+            eval_dataloader: DataLoader for evaluation
+            steps: Current global step for logging
+        """
+        self.actor.eval()
+        if self.critic is not None:
+            self.critic.eval()
+        
+        with torch.no_grad():
+            step_bar = tqdm(
+                range(eval_dataloader.__len__()),
+                desc=f"Eval stage of global_step {steps}",
+                disable=not self.strategy.is_rank_0(),
+            )
+            
+            total_reward = 0
+            total_samples = 0
+            
+            for rand_prompts in eval_dataloader:
+                for experience in self.experience_maker.make_experience_list(rand_prompts, **self.generate_kwargs):
+                    # Get reward from experience
+                    reward = experience.rewards.mean().item()
+                    
+                    # Accumulate reward
+                    total_reward += reward * len(experience.rewards)
+                    total_samples += len(experience.rewards)
+                    
+                    step_bar.update()
+                    
+            # Calculate average reward
+            avg_reward = total_reward / total_samples
+            
+            logs = {
+                "eval_reward": avg_reward,
+            }
+            
+            logs = self.strategy.all_reduce(logs)
+            step_bar.set_postfix(logs)
+            
+            if self.strategy.is_rank_0():
+                if self._wandb is not None:
+                    logs = {"eval/%s" % k: v for k, v in {**logs, "global_step": steps}.items()}
+                    self._wandb.log(logs)
+                elif self._tensorboard is not None:
+                    for k, v in logs.items():
+                        self._tensorboard.add_scalar(f"eval/{k}", v, steps)
+                    
+        # Reset models to training mode
+        self.actor.train()
+        if self.critic is not None:
+            self.critic.train()

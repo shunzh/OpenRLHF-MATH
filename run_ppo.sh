@@ -1,4 +1,4 @@
-deepspeed --module openrlhf.cli.train_ppo \
+CUDA_VISIBLE_DEVICES=0 deepspeed --module openrlhf.cli.train_ppo \
   --pretrain ../qwen-satori \
   --fixed_rm MATH \
   --save_path ./checkpoint/qwen-satori-math-rlhf \
@@ -18,6 +18,7 @@ deepspeed --module openrlhf.cli.train_ppo \
   --critic_learning_rate 9e-6 \
   --init_kl_coef 0.01 \
   --prompt_data ../ScaleQuest-QwQ \
+  --eval_data data/math \
   --input_key query \
   --answer_key answer \
   --max_samples 100000 \
