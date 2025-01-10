@@ -1,10 +1,10 @@
-CUDA_VISIBLE_DEVICES=0 deepspeed --module openrlhf.cli.train_ppo \
+deepspeed --module openrlhf.cli.train_ppo \
   --pretrain ../qwen-satori \
   --fixed_rm MATH \
   --save_path ./checkpoint/qwen-satori-math-rlhf \
-  --save_steps 25 \
+  --save_steps 50 \
   --logging_steps 1 \
-  --eval_steps -1 \
+  --eval_steps 50 \
   --micro_train_batch_size 2 \
   --train_batch_size 128 \
   --micro_rollout_batch_size 4 \
@@ -18,9 +18,12 @@ CUDA_VISIBLE_DEVICES=0 deepspeed --module openrlhf.cli.train_ppo \
   --critic_learning_rate 9e-6 \
   --init_kl_coef 0.01 \
   --prompt_data ../ScaleQuest-QwQ \
-  --eval_data data/math \
   --input_key query \
   --answer_key answer \
+  --eval_data data/math \
+  --eval_input_key problem \
+  --eval_answer_key answer \
+  --eval_input_template_file templates/qwen_template.txt \
   --max_samples 100000 \
   --normalize_reward \
   --adam_offload \

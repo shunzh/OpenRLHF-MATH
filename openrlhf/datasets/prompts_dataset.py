@@ -32,6 +32,8 @@ class PromptDataset(Dataset):
         dataset,
         tokenizer,
         strategy,
+        input_key=None,
+        answer_key=None,
         input_template=None,
     ) -> None:
         super().__init__()
@@ -40,8 +42,8 @@ class PromptDataset(Dataset):
 
         # chat_template
         self.input_template = input_template
-        input_key = getattr(self.strategy.args, "input_key", None)
-        answer_key = getattr(self.strategy.args, "answer_key", "answer")
+        input_key = input_key or getattr(self.strategy.args, "input_key", None)
+        answer_key = answer_key or getattr(self.strategy.args, "answer_key", "answer")
         apply_chat_template = getattr(self.strategy.args, "apply_chat_template", False)
 
         if apply_chat_template:

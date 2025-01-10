@@ -240,7 +240,9 @@ def train(args):
             eval_data, 
             tokenizer, 
             strategy, 
-            input_template=args.eval_input_template
+            input_template=args.eval_input_template,
+            input_key=args.eval_input_key,
+            answer_key=args.eval_answer_key,
         )
         eval_dataloader = strategy.setup_dataloader(
             eval_dataset, args.rollout_batch_size // strategy.world_size, True, shuffle=False
@@ -425,7 +427,7 @@ if __name__ == "__main__":
     parser.add_argument("--pretrain_split", type=str, default="train")
     parser.add_argument("--input_key", type=str, default="input", help="JSON dataset key")
     parser.add_argument("--answer_key", type=str, default="answer", help="JSON dataset key")
-    parser.add_argument("--input_template", type=str, default=None)
+    parser.add_argument("--input_template_file", type=str, default=None)
     parser.add_argument(
         "--apply_chat_template", action="store_true", default=False, help="Use HF tokenizer chat template"
     )
@@ -445,6 +447,8 @@ if __name__ == "__main__":
     parser.add_argument("--use_tensorboard", type=str, default=None, help="TensorBoard logging path")
 
     parser.add_argument("--eval_data", type=str, default=None, help="HF dataset name or path for evaluation")
+    parser.add_argument("--eval_input_key", type=str, default=None, help="HF dataset key for evaluation")
+    parser.add_argument("--eval_answer_key", type=str, default=None, help="HF dataset key for evaluation")
     parser.add_argument(
         "--eval_data_probs",
         type=str,
@@ -453,7 +457,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--eval_split", type=str, default="test")
 
-    parser.add_argument("--eval_input_template", type=str, default=None, 
+    parser.add_argument("--eval_input_template_file", type=str, default=None, 
                        help="Template for formatting eval prompts. Falls back to input_template if not specified")
 
     args = parser.parse_args()
@@ -469,14 +473,29 @@ if __name__ == "__main__":
     if args.advantage_estimator == "rloo":
         assert args.n_samples_per_prompt > 1, "RLOO requires n_samples_per_prompt > 1"
 
-    if args.input_template and "{}" not in args.input_template:
-        print("[Warning] {} not in args.input_template, set to None")
+
+    def check_template(input_template):
+        if input_template and "{}" not in input_template:
+            raise Exception("[Warning] {} not in args.input_template, set to None")
+
+        if input_template and "\\n" in input_template:
+            print(
+                "[Warning] input_template contains \\n chracters instead of newline. "
+                "You likely want to pass $'\\n' in Bash or \"`n\" in PowerShell."
+            )
+    
+    if args.input_template_file:
+        with open(args.input_template_file, "r") as f:
+            args.input_template = f.read()
+        check_template(args.input_template)
+    else:
         args.input_template = None
 
-    if args.input_template and "\\n" in args.input_template:
-        print(
-            "[Warning] input_template contains \\n chracters instead of newline. "
-            "You likely want to pass $'\\n' in Bash or \"`n\" in PowerShell."
-        )
+    if args.eval_input_template_file:
+        with open(args.eval_input_template_file, "r") as f:
+            args.eval_input_template = f.read()
+        check_template(args.eval_input_template)
+    else:
+        args.eval_input_template = None
 
     train(args)
